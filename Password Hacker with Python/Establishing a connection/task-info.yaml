@@ -4,11 +4,17 @@ files:
     visible: true
     learner_created: false
   - name: test/__init__.py
+    visible: true
     learner_created: false
   - name: test/tests.py
+    visible: true
     learner_created: false
   - name: tests.py
+    visible: true
     learner_created: false
 feedback_link: https://hyperskill.org/projects/80/stages/442/implement#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Mon, 26 Oct 2026 06:50:36 UTC"
 record: -1
