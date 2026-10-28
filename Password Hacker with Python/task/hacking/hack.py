@@ -1,17 +1,17 @@
+from argparse import ArgumentParser
 from itertools import product
 from socket import socket
-from argparse import ArgumentParser
-from typing import Iterator
-from string import ascii_lowercase, ascii_uppercase, digits
+from typing import Final, Iterator
 
 
-type CharacterRange = tuple[str, str]
-type CharacterRanges = tuple[CharacterRange] | tuple[CharacterRange, CharacterRange] | tuple[CharacterRange, CharacterRange, CharacterRange]
+FILENAME: Final[str] = "./password_dictionary.txt"
 
 
-def main():
-    """Connect to a TCP Server and find its password through brute force."""
-    parser: ArgumentParser = ArgumentParser(description="Connect to a TCP Server, send a message and display the result.")
+def main() -> None:
+    """Connect to a TCP Server and attempt to crack its password using a dictionary attack."""
+
+
+    parser: ArgumentParser = ArgumentParser(description="Connect to a TCP Server, attempt to crack the password using a dictionary attack.")
 
 
     # Add command line arguments
@@ -26,76 +26,52 @@ def main():
     with socket() as client_socket:
         address: tuple[str, int] = (ip_address, port)
 
+
         client_socket.connect(address)
 
-        for candidate in generate_candidates((("a", "z"), ("0", "9"))):
-            client_socket.sendall(candidate.encode())
+        for line in read_dictionary(FILENAME):
+            for variation in generate_case_variations(line):
+                client_socket.sendall(variation.encode())
 
-            if client_socket.recv(1024).decode() == "Connection success!":
-                print(candidate)
-                break
+                if client_socket.recv(1024).decode() == "Connection success!":
+                    print(variation)
+                    return
 
 
-def generate_candidates(character_ranges: CharacterRanges = (("A", "Z"), ("a", "z"), ("0", "9"))) -> Iterator[str]:
+def generate_case_variations(line: str) -> Iterator[str]:
     """
-    Lazily generates password candidates using the specified character ranges.
-
-    Candidates are generated in increasing order of length, starting at one
-    character and continuing up to the configured maximum length.
+    Lazily generate all case variations of a string.
 
     Args:
-        fields -- A tuple of character ranges, each represented by a pair of inclusive bounds.
+        line: A string to generate case variations for.
+
     Yields:
-        str: The next password candidate.
+        str: The next possible case variation.
     """
 
-    upper = []
-    lower = []
-    digit = []
-    groups = []
+    if not isinstance(line, str):
+        raise TypeError("Input for case generation must be a string.")
 
-    def parse_char_list(char_range: CharacterRange) -> tuple[str, list[str]]:
-        """Classify a character range and return its category and characters."""
+    choices: list[tuple[str, ...]] = []
+
+    for char in line:
+
+        if char.isalpha():
+            variations = (char.lower(), char.upper())
+        else:
+            variations = (char,)
+
+        choices.append(variations)
+
+    yield from ("".join(chars) for chars in product(*choices))
 
 
-        match char_range:
-            case (str(start), str(end)) if start.isupper() and end.isupper():
-                return "upper", [char for char in ascii_uppercase if start <= char <= end]
-            case (str(start), str(end)) if start.islower() and end.islower():
-                return "lower", [char for char in ascii_lowercase if start <= char <= end]
-            case (str(start), str(end)) if start.isdigit() and end.isdigit():
-                return "digit", [char for char in digits if start <= char <= end]
-            case _:
-                raise ValueError("Expected string fields")
-
-    # Perform checks on parameters and assign variables for each range
-    try:
-
-        if not 1 <= len(character_ranges) <= 3:
-            raise ValueError("Expected between 1 and 3 ranges")
-
-        for field in character_ranges:
-            if len(field) != 2 or any(len(i) != 1 for i in field) or field[0] > field[1]:
-                raise ValueError("Each range must contain exactly two single characters in ascending order.")
-
-            kind, chars = parse_char_list(field)
-
-            match kind:
-                case "upper":
-                    upper.extend(chars)
-                case "lower":
-                    lower.extend(chars)
-                case "digit":
-                    digit.extend(chars)
-
-        chars = upper + lower + digit
-
-        for i in range(1, 6):
-            yield from ("".join(p) for p in product(chars, repeat=i))
-
-    except ValueError as e:
-        print(f"Invalid Input: {e}")
-        return
+def read_dictionary(filename: str) -> Iterator[str]:
+    """Read a password dictionary and yield valid entries one at a time."""
+    with open(filename, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip().isalnum():
+                yield line.strip()
 
 
 
