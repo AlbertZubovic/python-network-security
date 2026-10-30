@@ -15,3 +15,11 @@ venv/
 # Operating system
 .DS_Store
 Thumbs.db
+
+# Hyperskill-generated metadata
+**/task-info.yaml
+**/task-remote-info.yaml
+**/task.html
+course-info.yaml
+course-remote-info.yaml
+**/lesson-info.yaml
